@@ -1,0 +1,23 @@
+# dependencies
+/node_modules
+
+# testing
+/coverage
+
+# database
+/prisma/db.sqlite
+/prisma/db.sqlite-journal
+
+# production
+/build
+
+# misc
+.DS_Store
+
+# local env files
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
