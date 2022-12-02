@@ -50,3 +50,34 @@ npm install -D @types/bcryptjs @types/config @types/cookie-parser @types/express
 # yarn
 yarn add -D @types/bcryptjs @types/config @types/cookie-parser @types/express @types/jsonwebtoken @types/lodash @types/morgan @types/node @types/cors
 ```
+
+See `initial` commit to git
+
+## Setting up prisma
+
+tsconfig.json:
+```
+"lib": ["esnext"],
+```
+```
+npm install prisma --save-dev
+```
+```
+npx prisma init
+```
+
+### Update `.env` file
+```
+DATABASE_URL="postgresql://yevgen:password@localhost:5433/testnextjs?schema=public"
+```
+
+### Install prisma clien
+
+```
+npm install @prisma/client
+```
+
+### Add script to `package.json`
+```
+"postinstall": "prisma generate",
+```
