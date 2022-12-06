@@ -6,7 +6,7 @@ import { addRefreshTokenToWhitelist } from "~/api/auth/auth.services";
 import {
   findUserByEmail,
   createUserByEmailAndPassword,
-} from "@api/users/users.services";
+} from "~/models/user.model";
 import { type CreateUserInput } from "~/schemas/user.schema";
 
 export const registerUserHandler = async (
