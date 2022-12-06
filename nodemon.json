@@ -6,7 +6,7 @@
     "lib/**/*"
   ],
   "execMap": {
-    "ts": "node --loader ts-node/esm"
+    "ts": "node -r tsconfig-paths/register --loader ts-node/esm -r ts-node/register"
   },
   "ext": "ts,js,mjs,json"
 }
