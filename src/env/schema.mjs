@@ -11,6 +11,11 @@ export const serverSchema = z.object({
   PORT: z.string().min(4).max(5),
   ACCESS_TOKEN_PRIVATE_KEY: z.string(),
   ACCESS_TOKEN_PUBLIC_KEY: z.string(),
+  REFRESH_TOKEN_PRIVATE_KEY: z.string(),
+  REFRESH_TOKEN_PUBLIC_KEY: z.string(),
   JWT_ACCESS_SECRET: z.string(),
   JWT_REFRESH_SECRET: z.string(),
+  REDIS_CACHE_EXPIRES_IN: z.string(),
+  ACCESS_TOKEN_EXPIRES_IN: z.string(),
+  REFRESH_TOKEN_EXPIRES_IN: z.string(),
 });
