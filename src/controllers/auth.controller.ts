@@ -2,7 +2,7 @@ import { CookieOptions, NextFunction, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcryptjs";
 
-import { generateTokens } from "~/utils/jwt";
+import { generateTokens, signJwt, verifyJwt } from "~/utils/jwt";
 import { addRefreshTokenToWhitelist } from "~/api/auth/auth.services";
 import {
   findUserByEmail,
@@ -10,9 +10,10 @@ import {
   findUniqueUser,
 } from "~/models/user.model";
 import { LoginUserInput, type CreateUserInput } from "~/schemas/user.schema";
-import { env } from "process";
+import { env } from "~/env/server.mjs";
 import { signTokens } from "~/services/user.service";
 import AppError from "~/utils/appError";
+import redisClient from "~/utils/connectRedis";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -119,6 +120,66 @@ export const loginUserHandler = async (
       httpOnly: false,
     });
 
+    res.status(200).json({
+      status: 'success',
+      access_token,
+    });
+  } catch (err: any) {
+    next(err);
+  }
+};
+
+export const refreshAccessTokenHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const refresh_token = req.cookies.refresh_token;
+
+    const message = 'Could not refresh access token';
+
+    if (!refresh_token) {
+      return next(new AppError(403, message));
+    }
+
+    // Validate refresh token
+    const decoded = verifyJwt<{ sub: string }>(
+      refresh_token,
+      'REFRESH_TOKEN_PUBLIC_KEY'
+    );
+
+    if (!decoded) {
+      return next(new AppError(403, message));
+    }
+
+    // Check if user has a valid session
+    const session = await redisClient.get(decoded.sub);
+
+    if (!session) {
+      return next(new AppError(403, message));
+    }
+
+    // Check if user still exist
+    const user = await findUniqueUser({ id: JSON.parse(session).id });
+
+    if (!user) {
+      return next(new AppError(403, message));
+    }
+
+    // Sign new access token
+    const access_token = signJwt({ sub: user.id }, 'ACCESS_TOKEN_PRIVATE_KEY', {
+      expiresIn: `${env.ACCESS_TOKEN_EXPIRES_IN}m`,
+    });
+
+    // 4. Add Cookies
+    res.cookie('access_token', access_token, accessTokenCookieOptions);
+    res.cookie('logged_in', true, {
+      ...accessTokenCookieOptions,
+      httpOnly: false,
+    });
+
+    // 5. Send response
     res.status(200).json({
       status: 'success',
       access_token,
