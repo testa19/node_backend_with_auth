@@ -26,6 +26,16 @@ export const createUserByEmailAndPassword = async (user: Prisma.UserCreateInput)
   })) as User;
 };
 
+export const findUniqueUser = async (
+  where: Prisma.UserWhereUniqueInput,
+  select?: Prisma.UserSelect
+) => {
+  return (await prisma.user.findUnique({
+    where,
+    select,
+  })) as User;
+};
+
 export const findUser = async (
   where: Partial<Prisma.UserWhereInput>,
   select?: Prisma.UserSelect

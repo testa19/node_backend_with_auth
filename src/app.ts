@@ -6,12 +6,16 @@ import morgan from "morgan";
 import { env } from "./env/server.mjs";
 import { router as authRouter } from "@api/auth/auth.routes.js";
 import AppError from "./utils/appError.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
 // MIDDLEWARE
 
 // 1.Body Parser
 app.use(express.json({ limit: '10kb' }));
+
+// 2. Cookie Parser
+app.use(cookieParser());
 
 // 2. Cors
 app.use(
