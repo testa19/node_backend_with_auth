@@ -5,6 +5,7 @@ import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
 import { env } from "./env/server.mjs";
 import { router as authRouter } from "@api/auth/auth.routes.js";
+import usersRouter from "@api/users/user.routes.js";
 import AppError from "./utils/appError.js";
 import cookieParser from "cookie-parser";
 
@@ -30,6 +31,7 @@ if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 
 // ROUTES
 app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 
 // UNHANDLED ROUTES
 app.all('*', (req: Request, res: Response, next: NextFunction) => {
