@@ -1,5 +1,5 @@
 import { Prisma, User } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import * as argon2 from "argon2";
 import { prisma } from "~/utils/db";
 
 export const excludedFields = [
@@ -20,7 +20,7 @@ export const findUserByEmail = (email: string) => {
 
 export const createUserByEmailAndPassword = async (user: Prisma.UserCreateInput) => {
   user.email = user.email!.toLowerCase();
-  user.password = bcrypt.hashSync(user.password!, 12);
+  user.password = await argon2.hash(user.password!);
   return (await prisma.user.create({
     data: user,
   })) as User;

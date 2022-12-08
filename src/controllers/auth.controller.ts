@@ -1,6 +1,6 @@
 import { CookieOptions, NextFunction, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import bcrypt from "bcryptjs";
+import * as argon2 from "argon2";
 
 import { generateTokens, signJwt, verifyJwt } from "~/utils/jwt";
 import { addRefreshTokenToWhitelist } from "~/api/auth/auth.services";
@@ -41,10 +41,6 @@ export const registerUserHandler = async (
 ) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      res.status(400);
-      throw new Error("You must provide an email and a password.");
-    }
 
     const existingUser = await findUserByEmail(email);
 
@@ -107,7 +103,7 @@ export const loginUserHandler = async (
     //   );
     // }
 
-    if (!user || !(await bcrypt.compare(password, user.password!))) {
+    if (!user || !(await argon2.verify(user.password!, password))) {
       return next(new AppError(400, 'Invalid email or password'));
     }
 
