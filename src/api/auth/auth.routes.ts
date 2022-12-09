@@ -8,6 +8,7 @@ import {
   refreshAccessTokenHandler,
   registerUserHandler,
   resetPasswordHandler,
+  verifyEmailHandler,
 } from "~/controllers/auth.controller";
 import { validate } from "~/middleware/validate";
 import {
@@ -15,6 +16,7 @@ import {
   forgotPasswordSchema,
   loginUserSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
 } from "~/schemas/user.schema";
 
 const router = express.Router();
@@ -26,6 +28,12 @@ router.post("/login", validate(loginUserSchema), loginUserHandler);
 router.get("/refresh", refreshAccessTokenHandler);
 
 router.get("/logout", deserializeUser, requireUser, logoutUserHandler);
+
+router.get(
+  '/verifyemail/:verificationCode',
+  validate(verifyEmailSchema),
+  verifyEmailHandler
+);
 
 router.post(
   "/forgotpassword",

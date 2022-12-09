@@ -1,29 +1,29 @@
-import { object, string, TypeOf } from 'zod';
+import { object, string, TypeOf } from "zod";
 
 export const createUserSchema = object({
   body: object({
-    name: string({ required_error: 'Name is required' }),
-    email: string({ required_error: 'Email is required' }).email(
-      'Invalid email'
+    name: string({ required_error: "Name is required" }),
+    email: string({ required_error: "Email is required" }).email(
+      "Invalid email"
     ),
-    password: string({ required_error: 'Password is required' })
-      .min(8, 'Password must be more than 8 characters')
-      .max(32, 'Password must be less than 32 characters'),
-    passwordConfirm: string({ required_error: 'Please confirm your password' }),
+    password: string({ required_error: "Password is required" })
+      .min(8, "Password must be more than 8 characters")
+      .max(32, "Password must be less than 32 characters"),
+    passwordConfirm: string({ required_error: "Please confirm your password" }),
   }).refine((data) => data.password === data.passwordConfirm, {
-    path: ['passwordConfirm'],
-    message: 'Passwords do not match',
+    path: ["passwordConfirm"],
+    message: "Passwords do not match",
   }),
 });
 
 export const loginUserSchema = object({
   body: object({
-    email: string({ required_error: 'Email is required' }).email(
-      'Invalid email or password'
+    email: string({ required_error: "Email is required" }).email(
+      "Invalid email or password"
     ),
-    password: string({ required_error: 'Password is required' }).min(
+    password: string({ required_error: "Password is required" }).min(
       8,
-      'Invalid email or password'
+      "Invalid email or password"
     ),
   }),
 });
@@ -31,8 +31,8 @@ export const loginUserSchema = object({
 export const forgotPasswordSchema = object({
   body: object({
     email: string({
-      required_error: 'Email is required',
-    }).email('Email is invalid'),
+      required_error: "Email is required",
+    }).email("Email is invalid"),
   }),
 });
 
@@ -41,21 +41,29 @@ export const resetPasswordSchema = object({
     resetToken: string(),
   }),
   body: object({
-    password: string({ required_error: 'Password is required' })
-      .min(8, 'Password must be more than 8 characters')
-      .max(32, 'Password must be less than 32 characters'),
-    passwordConfirm: string({ required_error: 'Please confirm your password' }),
+    password: string({ required_error: "Password is required" })
+      .min(8, "Password must be more than 8 characters")
+      .max(32, "Password must be less than 32 characters"),
+    passwordConfirm: string({ required_error: "Please confirm your password" }),
   }).refine((data) => data.password === data.passwordConfirm, {
-    path: ['passwordConfirm'],
-    message: 'Passwords do not match',
+    path: ["passwordConfirm"],
+    message: "Passwords do not match",
   }),
 });
 
-export type CreateUserInput = Omit<
-TypeOf<typeof createUserSchema>['body'],
-'passwordConfirm'
->;
-export type LoginUserInput = TypeOf<typeof loginUserSchema>['body'];
+export const verifyEmailSchema = object({
+  params: object({
+    verificationCode: string(),
+  }),
+});
 
-export type ForgotPasswordInput = TypeOf<typeof forgotPasswordSchema>['body'];
+export type VerifyEmailInput = TypeOf<typeof verifyEmailSchema>["params"];
+
+export type CreateUserInput = Omit<
+  TypeOf<typeof createUserSchema>["body"],
+  "passwordConfirm"
+>;
+export type LoginUserInput = TypeOf<typeof loginUserSchema>["body"];
+
+export type ForgotPasswordInput = TypeOf<typeof forgotPasswordSchema>["body"];
 export type ResetPasswordInput = TypeOf<typeof resetPasswordSchema>;

@@ -19,4 +19,8 @@ export const serverSchema = z.object({
   REDIS_CACHE_EXPIRES_IN: z.string(),
   ACCESS_TOKEN_EXPIRES_IN: z.string(),
   REFRESH_TOKEN_EXPIRES_IN: z.string(),
+  MAIL_USER: z.string(),
+  MAIL_PASS: z.string(),
+  MAIL_HOST: z.string(),
+  MAIL_PORT: z.string(),
 });

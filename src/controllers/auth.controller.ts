@@ -12,7 +12,13 @@ import {
   findUser,
   updateUser,
 } from "~/models/user.model";
-import { ForgotPasswordInput, LoginUserInput, ResetPasswordInput, type CreateUserInput } from "~/schemas/user.schema";
+import {
+  ForgotPasswordInput,
+  LoginUserInput,
+  ResetPasswordInput,
+  VerifyEmailInput,
+  type CreateUserInput,
+} from "~/schemas/user.schema";
 import { env } from "~/env/server.mjs";
 import { signTokens } from "~/services/user.service";
 import AppError from "~/utils/appError";
@@ -54,26 +60,46 @@ export const registerUserHandler = async (
     }
 
     // Emai verification is not implemented yet
-    // const verifyCode = crypto.randomBytes(32).toString('hex');
-    // const verificationCode = crypto
-    //   .createHash('sha256')
-    //   .update(verifyCode)
-    //   .digest('hex');
+    const verifyCode = crypto.randomBytes(32).toString("hex");
+    const verificationCode = crypto
+      .createHash("sha256")
+      .update(verifyCode)
+      .digest("hex");
 
     const user = await createUserByEmailAndPassword({
       name: req.body.name,
       email,
       password,
-      // verificationCode,
+      verificationCode,
     });
-    const jti = uuidv4();
-    const { accessToken, refreshToken } = generateTokens(user, jti);
-    await addRefreshTokenToWhitelist({ jti, refreshToken, userId: user.id });
 
-    res.json({
-      accessToken,
-      refreshToken,
-    });
+    const redirectUrl = `${env.ORIGIN}/api/auth/verifyemail/${verifyCode}`;
+
+    try {
+      await new Email(user, redirectUrl).sendVerificationCode();
+      // await updateUser({ id: user.id }, { verificationCode });
+
+      res.status(201).json({
+        status: "success",
+        message:
+          "An email with a verification code has been sent to your email",
+      });
+    } catch (error) {
+      await updateUser({ id: user.id }, { verificationCode: null });
+      return res.status(500).json({
+        status: "error",
+        message: "There was an error sending email, please try again",
+      });
+    }
+
+    // const jti = uuidv4();
+    // const { accessToken, refreshToken } = generateTokens(user, jti);
+    // await addRefreshTokenToWhitelist({ jti, refreshToken, userId: user.id });
+
+    // res.json({
+    //   accessToken,
+    //   refreshToken,
+    // });
   } catch (err) {
     next(err);
   }
@@ -93,47 +119,46 @@ export const loginUserHandler = async (
     );
 
     if (!user) {
-      return next(new AppError(400, 'Invalid email or password'));
+      return next(new AppError(400, "Invalid email or password"));
     }
 
-    // Emai verification is not implemented yet
     // Check if user is verified
-    // if (!user.verified) {
-    //   return next(
-    //     new AppError(
-    //       401,
-    //       'You are not verified, please verify your email to login'
-    //     )
-    //   );
-    // }
+    if (user.password && !user.verified_at) {
+      return next(
+        new AppError(
+          401,
+          "You are not verified, please verify your email to login"
+        )
+      );
+    }
 
     if (!user) {
-      return next(new AppError(400, 'Invalid email or password'));
+      return next(new AppError(400, "Invalid email or password"));
     }
 
     if (!user.password) {
       return res.status(403).json({
-        status: 'fail',
+        status: "fail",
         message:
-          'We found your account. It looks like you registered with a social auth account. Try signing in with social auth.',
+          "We found your account. It looks like you registered with a social auth account. Try signing in with social auth.",
       });
     }
 
     if (!(await argon2.verify(user.password, password))) {
-      return next(new AppError(400, 'Invalid email or password'));
+      return next(new AppError(400, "Invalid email or password"));
     }
 
     // Sign Tokens
     const { access_token, refresh_token } = await signTokens(user);
-    res.cookie('access_token', access_token, accessTokenCookieOptions);
-    res.cookie('refresh_token', refresh_token, refreshTokenCookieOptions);
-    res.cookie('logged_in', true, {
+    res.cookie("access_token", access_token, accessTokenCookieOptions);
+    res.cookie("refresh_token", refresh_token, refreshTokenCookieOptions);
+    res.cookie("logged_in", true, {
       ...accessTokenCookieOptions,
       httpOnly: false,
     });
 
     res.status(200).json({
-      status: 'success',
+      status: "success",
       access_token,
     });
   } catch (err: any) {
@@ -149,7 +174,7 @@ export const refreshAccessTokenHandler = async (
   try {
     const refresh_token = req.cookies.refresh_token;
 
-    const message = 'Could not refresh access token';
+    const message = "Could not refresh access token";
 
     if (!refresh_token) {
       return next(new AppError(403, message));
@@ -158,7 +183,7 @@ export const refreshAccessTokenHandler = async (
     // Validate refresh token
     const decoded = verifyJwt<{ sub: string }>(
       refresh_token,
-      'REFRESH_TOKEN_PUBLIC_KEY'
+      "REFRESH_TOKEN_PUBLIC_KEY"
     );
 
     if (!decoded) {
@@ -180,20 +205,20 @@ export const refreshAccessTokenHandler = async (
     }
 
     // Sign new access token
-    const access_token = signJwt({ sub: user.id }, 'ACCESS_TOKEN_PRIVATE_KEY', {
+    const access_token = signJwt({ sub: user.id }, "ACCESS_TOKEN_PRIVATE_KEY", {
       expiresIn: `${env.ACCESS_TOKEN_EXPIRES_IN}m`,
     });
 
     // 4. Add Cookies
-    res.cookie('access_token', access_token, accessTokenCookieOptions);
-    res.cookie('logged_in', true, {
+    res.cookie("access_token", access_token, accessTokenCookieOptions);
+    res.cookie("logged_in", true, {
       ...accessTokenCookieOptions,
       httpOnly: false,
     });
 
     // 5. Send response
     res.status(200).json({
-      status: 'success',
+      status: "success",
       access_token,
     });
   } catch (err: any) {
@@ -202,9 +227,9 @@ export const refreshAccessTokenHandler = async (
 };
 
 function logout(res: Response) {
-  res.cookie('access_token', '', { maxAge: 1 });
-  res.cookie('refresh_token', '', { maxAge: 1 });
-  res.cookie('logged_in', '', { maxAge: 1 });
+  res.cookie("access_token", "", { maxAge: 1 });
+  res.cookie("refresh_token", "", { maxAge: 1 });
+  res.cookie("logged_in", "", { maxAge: 1 });
 }
 
 export const logoutUserHandler = async (
@@ -217,9 +242,45 @@ export const logoutUserHandler = async (
     logout(res);
 
     res.status(200).json({
-      status: 'success',
+      status: "success",
     });
   } catch (err: any) {
+    next(err);
+  }
+};
+
+export const verifyEmailHandler = async (
+  req: Request<VerifyEmailInput>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const verificationCode = crypto
+      .createHash("sha256")
+      .update(req.params.verificationCode)
+      .digest("hex");
+
+    const user = await updateUser(
+      { verificationCode },
+      { verified_at: new Date(), verificationCode: null },
+      { email: true }
+    );
+
+    if (!user) {
+      return next(new AppError(401, "Could not verify email"));
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Email verified successfully",
+    });
+  } catch (err: any) {
+    if (err.code === "P2025") {
+      return res.status(403).json({
+        status: "fail",
+        message: `Verification code is invalid or user doesn't exist`,
+      });
+    }
     next(err);
   }
 };
@@ -237,34 +298,34 @@ export const forgotPasswordHandler = async (
     // Get the user from the collection
     const user = await findUser({ email: req.body.email.toLowerCase() });
     const message =
-      'You will receive a reset email if user with that email exist';
+      "You will receive a reset email if user with that email exist";
     if (!user) {
       return res.status(200).json({
-        status: 'success',
+        status: "success",
         message,
       });
     }
 
     if (!user.verified_at) {
       return res.status(403).json({
-        status: 'fail',
-        message: 'Account not verified',
+        status: "fail",
+        message: "Account not verified",
       });
     }
 
     if (!user.password) {
       return res.status(403).json({
-        status: 'fail',
+        status: "fail",
         message:
-          'We found your account. It looks like you registered with a social auth account. Try signing in with social auth.',
+          "We found your account. It looks like you registered with a social auth account. Try signing in with social auth.",
       });
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetToken = crypto.randomBytes(32).toString("hex");
     const passwordResetToken = crypto
-      .createHash('sha256')
+      .createHash("sha256")
       .update(resetToken)
-      .digest('hex');
+      .digest("hex");
 
     await updateUser(
       { id: user.id },
@@ -280,9 +341,9 @@ export const forgotPasswordHandler = async (
       // await new Email(user, url).sendPasswordResetToken();
 
       res.status(200).json({
-        status: 'success',
+        status: "success",
         message,
-        url
+        url,
       });
     } catch (err: any) {
       await updateUser(
@@ -291,8 +352,8 @@ export const forgotPasswordHandler = async (
         {}
       );
       return res.status(500).json({
-        status: 'error',
-        message: 'There was an error sending email',
+        status: "error",
+        message: "There was an error sending email",
       });
     }
   } catch (err: any) {
@@ -302,9 +363,9 @@ export const forgotPasswordHandler = async (
 
 export const resetPasswordHandler = async (
   req: Request<
-    ResetPasswordInput['params'],
+    ResetPasswordInput["params"],
     Record<string, never>,
-    ResetPasswordInput['body']
+    ResetPasswordInput["body"]
   >,
   res: Response,
   next: NextFunction
@@ -312,9 +373,9 @@ export const resetPasswordHandler = async (
   try {
     // Get the user from the collection
     const passwordResetToken = crypto
-      .createHash('sha256')
+      .createHash("sha256")
       .update(req.params.resetToken)
-      .digest('hex');
+      .digest("hex");
 
     const user = await findUser({
       passwordResetToken,
@@ -325,8 +386,8 @@ export const resetPasswordHandler = async (
 
     if (!user) {
       return res.status(403).json({
-        status: 'fail',
-        message: 'Invalid token or token has expired',
+        status: "fail",
+        message: "Invalid token or token has expired",
       });
     }
 
@@ -346,8 +407,8 @@ export const resetPasswordHandler = async (
 
     logout(res);
     res.status(200).json({
-      status: 'success',
-      message: 'Password data updated successfully',
+      status: "success",
+      message: "Password data updated successfully",
     });
   } catch (err: any) {
     next(err);
