@@ -1,5 +1,6 @@
 import { CookieOptions, NextFunction, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import * as argon2 from "argon2";
 
 import { generateTokens, signJwt, verifyJwt } from "~/utils/jwt";
@@ -8,12 +9,15 @@ import {
   findUserByEmail,
   createUserByEmailAndPassword,
   findUniqueUser,
+  findUser,
+  updateUser,
 } from "~/models/user.model";
-import { LoginUserInput, type CreateUserInput } from "~/schemas/user.schema";
+import { ForgotPasswordInput, LoginUserInput, ResetPasswordInput, type CreateUserInput } from "~/schemas/user.schema";
 import { env } from "~/env/server.mjs";
 import { signTokens } from "~/services/user.service";
 import AppError from "~/utils/appError";
 import redisClient from "~/utils/connectRedis";
+import Email from "~/services/mailer.service";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -103,7 +107,19 @@ export const loginUserHandler = async (
     //   );
     // }
 
-    if (!user || !(await argon2.verify(user.password!, password))) {
+    if (!user) {
+      return next(new AppError(400, 'Invalid email or password'));
+    }
+
+    if (!user.password) {
+      return res.status(403).json({
+        status: 'fail',
+        message:
+          'We found your account. It looks like you registered with a social auth account. Try signing in with social auth.',
+      });
+    }
+
+    if (!(await argon2.verify(user.password, password))) {
       return next(new AppError(400, 'Invalid email or password'));
     }
 
@@ -202,6 +218,136 @@ export const logoutUserHandler = async (
 
     res.status(200).json({
       status: 'success',
+    });
+  } catch (err: any) {
+    next(err);
+  }
+};
+
+export const forgotPasswordHandler = async (
+  req: Request<
+    Record<string, never>,
+    Record<string, never>,
+    ForgotPasswordInput
+  >,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Get the user from the collection
+    const user = await findUser({ email: req.body.email.toLowerCase() });
+    const message =
+      'You will receive a reset email if user with that email exist';
+    if (!user) {
+      return res.status(200).json({
+        status: 'success',
+        message,
+      });
+    }
+
+    if (!user.verified_at) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'Account not verified',
+      });
+    }
+
+    if (!user.password) {
+      return res.status(403).json({
+        status: 'fail',
+        message:
+          'We found your account. It looks like you registered with a social auth account. Try signing in with social auth.',
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const passwordResetToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    await updateUser(
+      { id: user.id },
+      {
+        passwordResetToken,
+        passwordResetAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+      { email: true }
+    );
+
+    try {
+      const url = `${env.ORIGIN}/api/auth/resetPassword/${resetToken}`;
+      // await new Email(user, url).sendPasswordResetToken();
+
+      res.status(200).json({
+        status: 'success',
+        message,
+        url
+      });
+    } catch (err: any) {
+      await updateUser(
+        { id: user.id },
+        { passwordResetToken: null, passwordResetAt: null },
+        {}
+      );
+      return res.status(500).json({
+        status: 'error',
+        message: 'There was an error sending email',
+      });
+    }
+  } catch (err: any) {
+    next(err);
+  }
+};
+
+export const resetPasswordHandler = async (
+  req: Request<
+    ResetPasswordInput['params'],
+    Record<string, never>,
+    ResetPasswordInput['body']
+  >,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Get the user from the collection
+    const passwordResetToken = crypto
+      .createHash('sha256')
+      .update(req.params.resetToken)
+      .digest('hex');
+
+    const user = await findUser({
+      passwordResetToken,
+      passwordResetAt: {
+        gt: new Date(),
+      },
+    });
+
+    if (!user) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'Invalid token or token has expired',
+      });
+    }
+
+    const hashedPassword = await argon2.hash(req.body.password);
+    // Change password data
+    await updateUser(
+      {
+        id: user.id,
+      },
+      {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetAt: null,
+      },
+      { email: true }
+    );
+
+    logout(res);
+    res.status(200).json({
+      status: 'success',
+      message: 'Password data updated successfully',
     });
   } catch (err: any) {
     next(err);

@@ -18,7 +18,9 @@ export const findUserByEmail = (email: string) => {
   });
 };
 
-export const createUserByEmailAndPassword = async (user: Prisma.UserCreateInput) => {
+export const createUserByEmailAndPassword = async (
+  user: Prisma.UserCreateInput
+) => {
   user.email = user.email!.toLowerCase();
   user.password = await argon2.hash(user.password!);
   return (await prisma.user.create({

@@ -46,6 +46,13 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+
+  verified_at DateTime?
+  verificationCode String? @db.Text @unique
+  
+  passwordResetToken String?  @unique
+  passwordResetAt DateTime?
+
   Account       Account[]
   Session       Session[]
   refreshTokens RefreshToken[]

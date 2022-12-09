@@ -29,9 +29,9 @@ export const prisma =
   });
 
 prisma.$on("query", (e: Prisma.QueryEvent) => {
-  console.log("Query: " + '\u001b[' + 33 + 'm' + e.query + '\u001b[0m');
-  console.log("Params: " + e.params);
-  console.log('\u001b[' + 32 + 'm' + "Duration: " + e.duration + "ms" + '\u001b[0m');
+  console.log('\x1b[' + 33 + 'm' + e.timestamp.toISOString() + '\x1b[0m');
+  console.log(`\u001b[${32}m(${e.duration}ms)\u001b[0m \u001b[${34}m${e.query}\u001b[0m`);
+  console.log('\x1b[' + 36 + 'm' + e.params + '\x1b[0m');
 });
 
 if (env.NODE_ENV !== "production") {
