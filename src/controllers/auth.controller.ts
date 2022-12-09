@@ -1,10 +1,8 @@
 import { CookieOptions, NextFunction, Request, Response } from "express";
-import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import * as argon2 from "argon2";
 
-import { generateTokens, signJwt, verifyJwt } from "~/utils/jwt";
-import { addRefreshTokenToWhitelist } from "~/api/auth/auth.services";
+import { signJwt, verifyJwt } from "~/utils/jwt";
 import {
   findUserByEmail,
   createUserByEmailAndPassword,
@@ -91,15 +89,6 @@ export const registerUserHandler = async (
         message: "There was an error sending email, please try again",
       });
     }
-
-    // const jti = uuidv4();
-    // const { accessToken, refreshToken } = generateTokens(user, jti);
-    // await addRefreshTokenToWhitelist({ jti, refreshToken, userId: user.id });
-
-    // res.json({
-    //   accessToken,
-    //   refreshToken,
-    // });
   } catch (err) {
     next(err);
   }
@@ -115,7 +104,7 @@ export const loginUserHandler = async (
 
     const user = await findUniqueUser(
       { email: email.toLowerCase() },
-      { id: true, email: true, password: true }
+      { id: true, email: true, password: true, verified_at: true }
     );
 
     if (!user) {

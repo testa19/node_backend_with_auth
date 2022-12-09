@@ -4,7 +4,8 @@ import { prisma } from "~/utils/db";
 
 export const excludedFields = [
   "password",
-  "verified",
+  "emailVerified",
+  "verified_at",
   "verificationCode",
   "passwordResetAt",
   "passwordResetToken",

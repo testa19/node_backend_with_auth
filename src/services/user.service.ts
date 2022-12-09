@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
-import lodash from 'lodash';
- const { omit } = lodash;
+import lodash from "lodash";
+const { omit } = lodash;
 import { env } from "~/env/server.mjs";
 import { signJwt } from "~/utils/jwt";
 import { excludedFields } from "~/models/user.model";

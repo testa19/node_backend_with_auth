@@ -1,10 +1,10 @@
-import { NextFunction, Request, Response } from 'express';
-import lodash from 'lodash';
+import { NextFunction, Request, Response } from "express";
+import lodash from "lodash";
 const { omit } = lodash;
-import { excludedFields, findUniqueUser } from '~/models/user.model';
-import AppError from '~/utils/appError';
-import redisClient from '~/utils/connectRedis';
-import { verifyJwt } from '~/utils/jwt';
+import { excludedFields, findUniqueUser } from "~/models/user.model";
+import AppError from "~/utils/appError";
+import redisClient from "~/utils/connectRedis";
+import { verifyJwt } from "~/utils/jwt";
 
 export const deserializeUser = async (
   req: Request,
@@ -16,21 +16,21 @@ export const deserializeUser = async (
 
     if (
       req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
+      req.headers.authorization.startsWith("Bearer")
     ) {
-      access_token = req.headers.authorization.split(' ')[1];
+      access_token = req.headers.authorization.split(" ")[1];
     } else if (req.cookies.access_token) {
       access_token = req.cookies.access_token;
     }
 
     if (!access_token) {
-      return next(new AppError(401, 'You have to log in'));
+      return next(new AppError(401, "You have to log in"));
     }
 
     // Validate the access token
     const decoded = verifyJwt<{ sub: string }>(
       access_token,
-      'ACCESS_TOKEN_PUBLIC_KEY'
+      "ACCESS_TOKEN_PUBLIC_KEY"
     );
 
     if (!decoded) {

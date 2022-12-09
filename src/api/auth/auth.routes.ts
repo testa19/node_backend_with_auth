@@ -30,7 +30,7 @@ router.get("/refresh", refreshAccessTokenHandler);
 router.get("/logout", deserializeUser, requireUser, logoutUserHandler);
 
 router.get(
-  '/verifyemail/:verificationCode',
+  "/verifyemail/:verificationCode",
   validate(verifyEmailSchema),
   verifyEmailHandler
 );

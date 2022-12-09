@@ -5,8 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dew": "tsx watch --clear-screen=false src/app.ts",
-    "dev": "nodemon ./src/app.ts",
+    "dev": "tsx watch --clear-screen=false src/app.ts",
+    "dew": "nodemon ./src/app.ts",
     "start": "ts-node-dev --respawn --transpile-only src/app.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "prisma generate"

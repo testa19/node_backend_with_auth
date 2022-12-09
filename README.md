@@ -1,3 +1,9 @@
+# What Node backend could be like at the time
+
+```
+npm install
+```
+
 ## Initialize Node
 
 ```
@@ -81,3 +87,5 @@ npm install @prisma/client
 ```
 "postinstall": "prisma generate",
 ```
+
+## At this point there was a problem of typescript compilation so after a day or two of suffering stopped doing the log
