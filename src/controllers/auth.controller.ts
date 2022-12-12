@@ -21,7 +21,7 @@ import { env } from "~/env/server.mjs";
 import { signTokens } from "~/services/user.service";
 import AppError from "~/utils/appError";
 import redisClient from "~/utils/connectRedis";
-import Email from "~/services/mailer.service";
+import { sendPasswordResetToken, sendVerificationCode } from "~/utils/mailer";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -74,7 +74,7 @@ export const registerUserHandler = async (
     const redirectUrl = `${env.ORIGIN}/api/auth/verifyemail/${verifyCode}`;
 
     try {
-      await new Email(user, redirectUrl).sendVerificationCode();
+      await sendVerificationCode(user, { url: redirectUrl });
       // await updateUser({ id: user.id }, { verificationCode });
 
       res.status(201).json({
@@ -328,11 +328,11 @@ export const forgotPasswordHandler = async (
     try {
       const url = `${env.ORIGIN}/api/auth/resetPassword/${resetToken}`;
       // await new Email(user, url).sendPasswordResetToken();
+      await sendPasswordResetToken(user, { url });
 
       res.status(200).json({
         status: "success",
         message,
-        url,
       });
     } catch (err: any) {
       await updateUser(
