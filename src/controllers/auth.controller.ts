@@ -21,7 +21,10 @@ import { env } from "~/env/server.mjs";
 import { signTokens } from "~/services/user.service";
 import AppError from "~/utils/appError";
 import redisClient from "~/utils/connectRedis";
-import { sendPasswordResetTokenJob, sendVerificationCodeJob } from "~/utils/queue";
+import {
+  sendPasswordResetTokenJob,
+  sendVerificationCodeJob,
+} from "~/utils/queue";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -64,12 +67,15 @@ export const registerUserHandler = async (
       .update(verifyCode)
       .digest("hex");
 
-    const user = await createUserByEmailAndPassword({
-      name: req.body.name,
-      email,
-      password,
-      verificationCode,
-    });
+    const user = await createUserByEmailAndPassword(
+      {
+        name: req.body.name,
+        email,
+        password,
+        verificationCode,
+      },
+      { id: true, email: true, name: true }
+    );
 
     const redirectUrl = `${env.ORIGIN}/api/auth/verifyemail/${verifyCode}`;
 
@@ -187,7 +193,10 @@ export const refreshAccessTokenHandler = async (
     }
 
     // Check if user still exist
-    const user = await findUniqueUser({ id: JSON.parse(session).id });
+    const user = await findUniqueUser(
+      { id: JSON.parse(session).id },
+      { id: true, email: true }
+    );
 
     if (!user) {
       return next(new AppError(403, message));
@@ -285,7 +294,7 @@ export const forgotPasswordHandler = async (
 ) => {
   try {
     // Get the user from the collection
-    const user = await findUser({ email: req.body.email.toLowerCase() });
+    let user = await findUser({ email: req.body.email.toLowerCase() });
     const message =
       "You will receive a reset email if user with that email exist";
     if (!user) {
@@ -316,13 +325,13 @@ export const forgotPasswordHandler = async (
       .update(resetToken)
       .digest("hex");
 
-    await updateUser(
+    user = await updateUser(
       { id: user.id },
       {
         passwordResetToken,
         passwordResetAt: new Date(Date.now() + 10 * 60 * 1000),
       },
-      { email: true }
+      { id: true, name: true, email: true }
     );
 
     try {

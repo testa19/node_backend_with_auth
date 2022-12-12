@@ -1,20 +1,37 @@
 import { Prisma } from "@prisma/client";
-import Queue from "bull";
+import { JobsOptions, Queue, QueueEvents, Worker } from "bullmq";
+import IORedis from "ioredis";
+import { redisUrl } from "./connectRedis";
 import { sendPasswordResetToken, sendVerificationCode } from "./mailer";
 
-export const QueuePrefix = "bull";
+// Settings
 
-const mailQueue = new Queue("mail", { prefix: QueuePrefix });
+const QueuePrefix = "bull";
+const MAIL_QUEUE = "mail";
 
-const mailQueueJobOptions: Queue.JobOptions = {
+const connection = new IORedis(redisUrl, {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+});
+
+// Queues
+
+const mailQueue = new Queue(MAIL_QUEUE, {
+  connection,
+  prefix: QueuePrefix,
+});
+
+const mailQueueJobOptions: JobsOptions = {
   attempts: 3,
   backoff: {
     type: "exponential",
-    delay: 2000,
+    delay: 1000,
   },
   removeOnComplete: 10,
   removeOnFail: 10,
 };
+
+// Producers
 
 const RESET_PASSWORD_JOB = "reset_password";
 const VERIFY_EMAIL = "verify_email";
@@ -33,20 +50,42 @@ export const sendVerificationCodeJob = (
   mailQueue.add(VERIFY_EMAIL, { user, url }, mailQueueJobOptions);
 };
 
-mailQueue.process("reset_password", (job, done) => {
-  sendPasswordResetToken(job.data.user, { url: job.data.url });
-  done();
+// Workers
+
+const worker = new Worker(
+  MAIL_QUEUE,
+  async (job) => {
+    if (job.name === RESET_PASSWORD_JOB) {
+      await sendPasswordResetToken(job.data.user, { url: job.data.url });
+    }
+    if (job.name === VERIFY_EMAIL) {
+      await sendVerificationCode(job.data.user, { url: job.data.url });
+    }
+  },
+  { connection }
+);
+
+// Job listeners (for failed retried jobs will be every time)
+
+worker.on("completed", (job) => {
+  console.log(`🟢 ${job.id} has completed!`);
 });
 
-// mailQueue.on("global:completed", (jobId) => {
-//   console.log(`${jobId} succeeded!`);
-// });
-
-// mailQueue.on("global:active", (jobId) => {
-//   console.log(`${jobId} active!`);
-// });
-
-mailQueue.process("verify_email", (job, done) => {
-  sendVerificationCode(job.data.user, { url: job.data.url });
-  done();
+worker.on("failed", (job, err) => {
+  console.log(`${new Date()} ${job!.id} has failed with ${err.message}`);
 });
+
+// Global listeners (for failed retried jobs will be called once)
+
+// const queueEvents = new QueueEvents(MAIL_QUEUE, { connection });
+
+// queueEvents.on("completed", ({ jobId }) => {
+//   console.log(`(global) ${jobId} succeeded!`);
+// });
+
+// queueEvents.on(
+//   "failed",
+//   ({ jobId, failedReason }: { jobId: string; failedReason: string }) => {
+//     console.error(`🔴 (global) error for ${jobId}`, failedReason);
+//   }
+// );
