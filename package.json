@@ -33,6 +33,7 @@
   "dependencies": {
     "@prisma/client": "^4.7.1",
     "argon2": "^0.30.2",
+    "bull": "^4.10.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
