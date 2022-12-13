@@ -12,18 +12,33 @@ export const excludedFields = [
 ];
 
 export const createUser = async <T extends Prisma.UserCreateArgs>(
-  args?: Prisma.SelectSubset<T, Prisma.UserCreateArgs>
+  {data,
+  select}: Prisma.SelectSubset<T, Prisma.UserCreateArgs>
 ) => {
-  args!.data.email = args!.data.email!.toLowerCase();
-  args!.data.password = await argon2.hash(args!.data.password!);
+  data.email = data.email!.toLowerCase();
+  data.password = await argon2.hash(data.password!);
 
   const res = prisma.user.create<Prisma.SelectSubset<T, Prisma.UserCreateArgs>>(
     {
-      ...args!,
-    }
+      data,
+      select,
+    } as Prisma.SelectSubset<T, Prisma.UserCreateArgs>
   );
   return res;
 };
+// export const createUser = async <T extends Prisma.UserCreateArgs>(
+//   args?: Prisma.SelectSubset<T, Prisma.UserCreateArgs>
+// ) => {
+//   args!.data.email = args!.data.email!.toLowerCase();
+//   args!.data.password = await argon2.hash(args!.data.password!);
+
+//   const res = prisma.user.create<Prisma.SelectSubset<T, Prisma.UserCreateArgs>>(
+//     {
+//       ...args!,
+//     }
+//   );
+//   return res;
+// };
 
 // Just as an example, it better not to use this function as type checking is not done
 export const findUserById = async (id: string) => {

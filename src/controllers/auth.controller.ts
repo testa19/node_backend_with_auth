@@ -73,13 +73,6 @@ export const registerUserHandler = async (
       select: { id: true, email: true, name: true },
     });
 
-    //   user.email = user.email!.toLowerCase();
-    //   user.password = await argon2.hash(user.password!);
-
-    // const result = await prisma.user.create({
-    //   data: user, select: { id: true, email: true, name: true }
-    // })
-
     const redirectUrl = `${env.ORIGIN}/api/auth/verifyemail/${verifyCode}`;
 
     try {
