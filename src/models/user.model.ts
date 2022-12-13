@@ -11,56 +11,25 @@ export const excludedFields = [
   "passwordResetToken",
 ];
 
-export const findUserByEmail = (email: string) => {
-  return prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
-};
-
-export const createUserByEmailAndPassword = async (
-  user: Prisma.UserCreateInput
+export const createUser = async <T extends Prisma.UserCreateArgs>(
+  args?: Prisma.SelectSubset<T, Prisma.UserCreateArgs>
 ) => {
-  user.email = user.email!.toLowerCase();
-  user.password = await argon2.hash(user.password!);
-  return (await prisma.user.create({
-    data: user,
-  })) as User;
+  args!.data.email = args!.data.email!.toLowerCase();
+  args!.data.password = await argon2.hash(args!.data.password!);
+
+  const res = prisma.user.create<Prisma.SelectSubset<T, Prisma.UserCreateArgs>>(
+    {
+      ...args!,
+    }
+  );
+  return res;
 };
 
-export const findUniqueUser = async (
-  where: Prisma.UserWhereUniqueInput,
-  select?: Prisma.UserSelect
-) => {
-  return (await prisma.user.findUnique({
-    where,
-    select,
-  })) as User;
-};
-
-export const findUser = async (
-  where: Partial<Prisma.UserWhereInput>,
-  select?: Prisma.UserSelect
-) => {
-  return (await prisma.user.findFirst({
-    where,
-    select,
-  })) as User;
-};
-
+// Just as an example, it better not to use this function as type checking is not done
 export const findUserById = async (id: string) => {
   return (await prisma.user.findUnique({
     where: {
       id,
     },
   })) as User;
-};
-
-export const updateUser = async (
-  where: Partial<Prisma.UserWhereUniqueInput>,
-  data: Prisma.UserUpdateInput,
-  select?: Prisma.UserSelect
-) => {
-  return (await prisma.user.update({ where, data, select })) as User;
 };

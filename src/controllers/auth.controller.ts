@@ -2,14 +2,9 @@ import { CookieOptions, NextFunction, Request, Response } from "express";
 import crypto from "crypto";
 import * as argon2 from "argon2";
 
+import { prisma } from "~/utils/db";
 import { signJwt, verifyJwt } from "~/utils/jwt";
-import {
-  findUserByEmail,
-  createUserByEmailAndPassword,
-  findUniqueUser,
-  findUser,
-  updateUser,
-} from "~/models/user.model";
+import { createUser } from "~/models/user.model";
 import {
   ForgotPasswordInput,
   LoginUserInput,
@@ -25,6 +20,7 @@ import {
   sendPasswordResetTokenJob,
   sendVerificationCodeJob,
 } from "~/utils/queue";
+import { Prisma } from "@prisma/client";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -53,7 +49,7 @@ export const registerUserHandler = async (
   try {
     const { email, password } = req.body;
 
-    const existingUser = await findUserByEmail(email);
+    const existingUser = await prisma.user.findUnique({ where: { email } });
 
     if (existingUser) {
       res.status(400);
@@ -67,21 +63,27 @@ export const registerUserHandler = async (
       .update(verifyCode)
       .digest("hex");
 
-    const user = await createUserByEmailAndPassword(
-      {
+    const user = await createUser({
+      data: {
         name: req.body.name,
         email,
         password,
         verificationCode,
       },
-      { id: true, email: true, name: true }
-    );
+      select: { id: true, email: true, name: true },
+    });
+
+    //   user.email = user.email!.toLowerCase();
+    //   user.password = await argon2.hash(user.password!);
+
+    // const result = await prisma.user.create({
+    //   data: user, select: { id: true, email: true, name: true }
+    // })
 
     const redirectUrl = `${env.ORIGIN}/api/auth/verifyemail/${verifyCode}`;
 
     try {
       sendVerificationCodeJob(user, redirectUrl);
-      // await updateUser({ id: user.id }, { verificationCode });
 
       res.status(201).json({
         status: "success",
@@ -89,7 +91,10 @@ export const registerUserHandler = async (
           "An email with a verification code has been sent to your email",
       });
     } catch (error) {
-      await updateUser({ id: user.id }, { verificationCode: null });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { verificationCode: null },
+      });
       return res.status(500).json({
         status: "error",
         message: "There was an error sending email, please try again",
@@ -108,10 +113,10 @@ export const loginUserHandler = async (
   try {
     const { email, password } = req.body;
 
-    const user = await findUniqueUser(
-      { email: email.toLowerCase() },
-      { id: true, email: true, password: true, verified_at: true }
-    );
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { id: true, email: true, password: true, verified_at: true },
+    });
 
     if (!user) {
       return next(new AppError(400, "Invalid email or password"));
@@ -193,10 +198,10 @@ export const refreshAccessTokenHandler = async (
     }
 
     // Check if user still exist
-    const user = await findUniqueUser(
-      { id: JSON.parse(session).id },
-      { id: true, email: true }
-    );
+    const user = await prisma.user.findUnique({
+      where: { id: JSON.parse(session).id },
+      select: { id: true, email: true },
+    });
 
     if (!user) {
       return next(new AppError(403, message));
@@ -258,11 +263,11 @@ export const verifyEmailHandler = async (
       .update(req.params.verificationCode)
       .digest("hex");
 
-    const user = await updateUser(
-      { verificationCode },
-      { verified_at: new Date(), verificationCode: null },
-      { email: true }
-    );
+    const user = await prisma.user.update({
+      where: { verificationCode },
+      data: { verified_at: new Date(), verificationCode: null },
+      select: { email: true },
+    });
 
     if (!user) {
       return next(new AppError(401, "Could not verify email"));
@@ -294,24 +299,26 @@ export const forgotPasswordHandler = async (
 ) => {
   try {
     // Get the user from the collection
-    let user = await findUser({ email: req.body.email.toLowerCase() });
+    const chkUser = await prisma.user.findFirst({
+      where: { email: req.body.email.toLowerCase() },
+    });
     const message =
       "You will receive a reset email if user with that email exist";
-    if (!user) {
+    if (!chkUser) {
       return res.status(200).json({
         status: "success",
         message,
       });
     }
 
-    if (!user.verified_at) {
+    if (!chkUser.verified_at) {
       return res.status(403).json({
         status: "fail",
         message: "Account not verified",
       });
     }
 
-    if (!user.password) {
+    if (!chkUser.password) {
       return res.status(403).json({
         status: "fail",
         message:
@@ -325,14 +332,14 @@ export const forgotPasswordHandler = async (
       .update(resetToken)
       .digest("hex");
 
-    user = await updateUser(
-      { id: user.id },
-      {
+    const user = await prisma.user.update({
+      where: { id: chkUser.id },
+      data: {
         passwordResetToken,
         passwordResetAt: new Date(Date.now() + 10 * 60 * 1000),
       },
-      { id: true, name: true, email: true }
-    );
+      select: { id: true, name: true, email: true },
+    });
 
     try {
       const url = `${env.ORIGIN}/api/auth/resetPassword/${resetToken}`;
@@ -344,11 +351,10 @@ export const forgotPasswordHandler = async (
         message,
       });
     } catch (err: any) {
-      await updateUser(
-        { id: user.id },
-        { passwordResetToken: null, passwordResetAt: null },
-        {}
-      );
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordResetToken: null, passwordResetAt: null },
+      });
       return res.status(500).json({
         status: "error",
         message: "There was an error sending email",
@@ -375,10 +381,12 @@ export const resetPasswordHandler = async (
       .update(req.params.resetToken)
       .digest("hex");
 
-    const user = await findUser({
-      passwordResetToken,
-      passwordResetAt: {
-        gt: new Date(),
+    const user = await prisma.user.findFirst({
+      where: {
+        passwordResetToken,
+        passwordResetAt: {
+          gt: new Date(),
+        },
       },
     });
 
@@ -391,17 +399,17 @@ export const resetPasswordHandler = async (
 
     const hashedPassword = await argon2.hash(req.body.password);
     // Change password data
-    await updateUser(
-      {
+    await prisma.user.update({
+      where: {
         id: user.id,
       },
-      {
+      data: {
         password: hashedPassword,
         passwordResetToken: null,
         passwordResetAt: null,
       },
-      { email: true }
-    );
+      select: { email: true },
+    });
 
     logout(res);
     res.status(200).json({
