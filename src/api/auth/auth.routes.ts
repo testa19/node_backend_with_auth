@@ -3,6 +3,7 @@ import { deserializeUser } from "~/middleware/deserializeUser";
 import { requireUser } from "~/middleware/requireUser";
 import {
   forgotPasswordHandler,
+  githubOauthHandler,
   loginUserHandler,
   logoutUserHandler,
   refreshAccessTokenHandler,
@@ -46,5 +47,7 @@ router.patch(
   validate(resetPasswordSchema),
   resetPasswordHandler
 );
+
+router.get('/oauth/github', githubOauthHandler);
 
 export { router };

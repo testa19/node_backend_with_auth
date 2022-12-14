@@ -20,7 +20,9 @@ import {
   sendPasswordResetTokenJob,
   sendVerificationCodeJob,
 } from "~/utils/queue";
-import { Prisma } from "@prisma/client";
+import { User } from "@prisma/client";
+import { getGithubOauthToken, getGithubUser } from "~/services/session.service";
+import { githubScopes } from "~/utils/github";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -410,6 +412,90 @@ export const resetPasswordHandler = async (
       message: "Password data updated successfully",
     });
   } catch (err: any) {
+    next(err);
+  }
+};
+
+export const githubOauthHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Get the code from the query
+    const code = req.query.code as string;
+    // const pathUrl = (req.query.state as string) || "/";
+
+    if (!code) {
+      return next(new AppError(401, "Authorization code not provided!"));
+    }
+
+    // Use the code to get the id and access tokens
+    const { access_token: github_access_token } = await getGithubOauthToken({
+      code,
+    });
+
+    // Use the token to get the User
+    const { id, name, email, image } = await getGithubUser({
+      access_token: github_access_token,
+    });
+
+    const account = await prisma.account.findUnique({
+      where: { provider_providerAccountId: {providerAccountId: id, provider: "github" }},
+      select: { User: true },
+    })
+
+    let user: User;
+    let userByAccount = account?.User ?? null
+
+    if (userByAccount) {
+      user = userByAccount;
+    } else {
+      const userByEmail = email
+        ? await prisma.user.findUnique({ where: { email } })
+        : null
+            
+      if (userByEmail) {
+        // If you trust the oauth provider to correctly verify email addresses
+        user = userByEmail;
+      } else {
+        user = await createUser({
+          data: {
+            name,
+            email,
+            image,
+          },
+        })
+      }
+      prisma.account.create({
+        data: {
+          userId: user.id,
+          token_type: "bearer",
+          scope: githubScopes,
+          access_token: github_access_token,
+          provider: "github",
+          type: "oauth",
+          providerAccountId: id,
+        },
+      })
+    }
+
+    // Create access and refresh token
+    // Sign Tokens
+    const { access_token, refresh_token } = await signTokens(user);
+    res.cookie("access_token", access_token, accessTokenCookieOptions);
+    res.cookie("refresh_token", refresh_token, refreshTokenCookieOptions);
+    res.cookie("logged_in", true, {
+      ...accessTokenCookieOptions,
+      httpOnly: false,
+    });
+
+    res.status(200).json({
+      status: "success",
+      access_token,
+    });
+  } catch (err: any) {
+    console.log("Failed to authorize Github User", err);
     next(err);
   }
 };
