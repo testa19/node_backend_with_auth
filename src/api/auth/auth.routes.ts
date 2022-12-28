@@ -2,9 +2,8 @@ import express from "express";
 import { deserializeUser } from "~/middleware/deserializeUser";
 import { requireUser } from "~/middleware/requireUser";
 import {
+  calbackOauthHandler,
   forgotPasswordHandler,
-  githubOauthHandler,
-  googleOauthHandler,
   loginUserHandler,
   logoutUserHandler,
   refreshAccessTokenHandler,
@@ -49,7 +48,6 @@ router.patch(
   resetPasswordHandler
 );
 
-router.get('/oauth/github', githubOauthHandler);
-router.get('/oauth/google', googleOauthHandler);
+router.get("/oauth/callback/:providerId", calbackOauthHandler);
 
 export { router };
