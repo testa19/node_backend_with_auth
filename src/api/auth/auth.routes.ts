@@ -4,6 +4,7 @@ import { requireUser } from "~/middleware/requireUser";
 import {
   forgotPasswordHandler,
   githubOauthHandler,
+  googleOauthHandler,
   loginUserHandler,
   logoutUserHandler,
   refreshAccessTokenHandler,
@@ -49,5 +50,6 @@ router.patch(
 );
 
 router.get('/oauth/github', githubOauthHandler);
+router.get('/oauth/google', googleOauthHandler);
 
 export { router };

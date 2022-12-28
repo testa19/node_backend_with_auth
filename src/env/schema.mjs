@@ -16,6 +16,8 @@ export const serverSchema = z.object({
   REFRESH_TOKEN_PUBLIC_KEY: z.string(),
   GITHUB_ID: z.string(),
   GITHUB_SECRET: z.string(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string(),
   REDIS_CACHE_EXPIRES_IN: z.string(),
   ACCESS_TOKEN_EXPIRES_IN: z.string(),
   REFRESH_TOKEN_EXPIRES_IN: z.string(),

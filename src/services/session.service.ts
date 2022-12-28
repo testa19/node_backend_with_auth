@@ -122,7 +122,7 @@ export async function getGithubUser({
     if (!data.email) {
       // If the user does not have a public email, get another via the GitHub API
       // See https://docs.github.com/en/rest/users/emails#list-public-email-addresses-for-the-authenticated-user
-      const {data: emails}: {data: GithubEmail[]} = await axios.get(
+      const { data: emails }: { data: GithubEmail[] } = await axios.get(
         "https://api.github.com/user/emails",
         {
           headers: { Authorization: `Bearer ${access_token}` },
@@ -139,6 +139,148 @@ export async function getGithubUser({
       name: data.name ?? data.login,
       email: data.email!,
       image: data.avatar_url,
+    };
+  } catch (err: any) {
+    console.log(err);
+    throw Error(err);
+  }
+}
+
+interface GoogleOauthToken {
+  access_token: string;
+  id_token: string;
+  expires_in: number;
+  refresh_token: string;
+  token_type: string;
+  scope: string;
+}
+
+type ProviderOauthToken = GoogleOauthToken | GithubOauthToken;
+
+export const GithubProvider = {
+  rootURl: "https://github.com/login/oauth/access_token",
+  options: {
+    client_id: env.GITHUB_ID,
+    client_secret: env.GITHUB_SECRET,
+  },
+};
+
+export const GoogleProvider = {
+  rootURl: "https://oauth2.googleapis.com/token",
+  options: {
+    client_id: env.GOOGLE_OAUTH_CLIENT_ID,
+    client_secret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+  },
+};
+
+export const getProviderAuthToken = async ({
+  code,
+  provider,
+}: {
+  code: string;
+  provider: typeof GithubProvider | typeof GoogleProvider;
+}): Promise<ProviderOauthToken> => {
+  const rootURl = provider.rootURl;
+
+  const options = {
+    code,
+    ...provider.options,
+    redirect_uri: env.ORIGIN + "/api/auth/oauth/callback",
+    grant_type: "authorization_code",
+  };
+
+  try {
+    const { data } = await axios.post<ProviderOauthToken>(
+      rootURl,
+      qs.stringify(options),
+      {
+        headers: {
+          accept: "application/json",
+        },
+      }
+    );
+
+    return data;
+  } catch (err: any) {
+    console.log("Failed to fetch Google Oauth Tokens");
+    throw new Error(err);
+  }
+};
+
+export const getGoogleOauthToken = async ({
+  code,
+}: {
+  code: string;
+}): Promise<GoogleOauthToken> => {
+  const rootURl = "https://oauth2.googleapis.com/token";
+
+  const options = {
+    code,
+    client_id: env.GOOGLE_OAUTH_CLIENT_ID,
+    client_secret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+    redirect_uri: env.ORIGIN + "/api/auth/oauth/google",
+    grant_type: "authorization_code",
+  };
+  try {
+    const { data } = await axios.post<GoogleOauthToken>(
+      rootURl,
+      qs.stringify(options),
+      {
+        headers: {
+          accept: "application/json",
+        },
+      }
+    );
+
+    return data;
+  } catch (err: any) {
+    console.log("Failed to fetch Google Oauth Tokens");
+    throw new Error(err);
+  }
+};
+
+interface GoogleUserResult {
+  id: string;
+  email: string;
+  verified_email: boolean;
+  name: string;
+  given_name: string;
+  family_name: string;
+  image: string;
+  locale: string;
+}
+
+interface GoogleProfile {
+  id: string;
+  email: string;
+  verified_email: boolean;
+  name: string;
+  given_name: string;
+  family_name: string;
+  picture: string;
+  locale: string;
+}
+
+export async function getGoogleUser({
+  id_token,
+  access_token,
+}: {
+  id_token: string;
+  access_token: string;
+}): Promise<GoogleUserResult> {
+  try {
+    const { data } = await axios.get<GoogleProfile>(
+      `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
+      {
+        headers: {
+          Authorization: `Bearer ${id_token}`,
+        },
+      }
+    );
+
+    return {
+      ...data,
+      image: data.picture,
     };
   } catch (err: any) {
     console.log(err);

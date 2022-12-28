@@ -21,8 +21,12 @@ import {
   sendVerificationCodeJob,
 } from "~/utils/queue";
 import { User } from "@prisma/client";
-import { getGithubOauthToken, getGithubUser } from "~/services/session.service";
-import { githubScopes } from "~/utils/github";
+import {
+  getGithubOauthToken,
+  getGithubUser,
+  getGoogleOauthToken,
+  getGoogleUser,
+} from "~/services/session.service";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -441,19 +445,24 @@ export const githubOauthHandler = async (
     });
 
     const account = await prisma.account.findUnique({
-      where: { provider_providerAccountId: {providerAccountId: id, provider: "github" }},
+      where: {
+        provider_providerAccountId: {
+          providerAccountId: id,
+          provider: "github",
+        },
+      },
       select: { User: true },
-    })
+    });
 
     let user: User;
-    let userByAccount = account?.User ?? null
+    let userByAccount = account?.User ?? null;
 
     if (userByAccount) {
       user = userByAccount;
     } else {
       const userByEmail = email
         ? await prisma.user.findUnique({ where: { email } })
-        : null
+        : null;
             
       if (userByEmail) {
         // If you trust the oauth provider to correctly verify email addresses
@@ -465,7 +474,7 @@ export const githubOauthHandler = async (
             email,
             image,
           },
-        })
+        });
       }
       prisma.account.create({
         data: {
@@ -477,7 +486,7 @@ export const githubOauthHandler = async (
           type: "oauth",
           providerAccountId: id,
         },
-      })
+      });
     }
 
     // Create access and refresh token
@@ -496,6 +505,103 @@ export const githubOauthHandler = async (
     });
   } catch (err: any) {
     console.log("Failed to authorize Github User", err);
+    next(err);
+  }
+};
+
+
+export const googleOauthHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Get the code from the query
+    const code = req.query.code as string;
+    // const pathUrl = (req.query.state as string) || "/";
+
+    if (!code) {
+      return next(new AppError(401, "Authorization code not provided!"));
+    }
+
+    // Use the code to get the id and access tokens
+    const { id_token, access_token: google_access_token } =
+      await getGoogleOauthToken({
+        code,
+      });
+
+    // Use the token to get the User
+    const { id, name, email, image, verified_email } = await getGoogleUser({
+      id_token,
+      access_token: google_access_token,
+    });
+
+    // Check if user is verified
+    if (!verified_email) {
+      return next(new AppError(403, "Google account not verified"));
+    }
+
+    const account = await prisma.account.findUnique({
+      where: {
+        provider_providerAccountId: {
+          providerAccountId: id,
+          provider: "google",
+        },
+      },
+      select: { User: true },
+    });
+
+    let user: User;
+    let userByAccount = account?.User ?? null;
+
+    if (userByAccount) {
+      user = userByAccount;
+    } else {
+      const userByEmail = email
+        ? await prisma.user.findUnique({ where: { email } })
+        : null;
+
+      if (userByEmail) {
+        // If you trust the oauth provider to correctly verify email addresses
+        user = userByEmail;
+      } else {
+        user = await createUser({
+          data: {
+            name,
+            email,
+            image,
+          },
+        });
+      }
+      await prisma.account.create({
+        data: {
+          userId: user.id,
+          token_type: "bearer",
+          scope: googleScopes,
+          access_token: google_access_token,
+          provider: "google",
+          type: "oauth",
+          providerAccountId: id,
+        },
+      });
+    }
+
+    // Create access and refresh token
+    // Sign Tokens
+    const { access_token, refresh_token } = await signTokens(user);
+    res.cookie("access_token", access_token, accessTokenCookieOptions);
+    res.cookie("refresh_token", refresh_token, refreshTokenCookieOptions);
+    res.cookie("logged_in", true, {
+      ...accessTokenCookieOptions,
+      httpOnly: false,
+    });
+
+    res.status(200).json({
+      status: "success",
+      access_token,
+    });
+  } catch (err: any) {
+    console.log("Failed to authorize Google User", err);
     next(err);
   }
 };

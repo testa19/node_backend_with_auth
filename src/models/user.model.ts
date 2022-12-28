@@ -16,7 +16,7 @@ export const createUser = async <T extends Prisma.UserCreateArgs>(
   select}: Prisma.SelectSubset<T, Prisma.UserCreateArgs>
 ) => {
   data.email = data.email!.toLowerCase();
-  data.password = await argon2.hash(data.password!);
+  if (data.password) data.password = await argon2.hash(data.password);
 
   const res = prisma.user.create<Prisma.SelectSubset<T, Prisma.UserCreateArgs>>(
     {
