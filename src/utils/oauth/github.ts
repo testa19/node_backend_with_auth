@@ -70,7 +70,7 @@ export default function GitHub<
     clientSecret: env.GITHUB_SECRET,
     authorization: {
       url: "https://github.com/login/oauth/authorize",
-      scopes: githubScopes,
+      scope: githubScopes,
     },
     token: "https://github.com/login/oauth/access_token",
     userinfo: {

@@ -24,10 +24,10 @@ type UrlParams = Record<string, unknown>;
 
 type TokenSet = Partial<OAuth2TokenEndpointResponse>;
 
-type EndpointRequest<C, R, P> = (
+type EndpointRequest<P, C, R> = (
   context: C & {
-    /** Provider is passed for convenience, ans also contains the `callbackUrl`. */
-    provider: OAuthConfig<P>;
+    /** Provider is passed for convenience. */
+    provider: OAuthConfig<R>;
   }
 ) => Promise<R>;
 
@@ -45,7 +45,7 @@ interface AdvancedEndpointHandler<P extends UrlParams, C, R> {
    * - ⚠ **This is an advanced option.**
    * You should **try to avoid using advanced options** unless you are very comfortable using them.
    */
-  request: EndpointRequest<C, R, P>;
+  request: EndpointRequest<P, C, R>;
 }
 
 /** Either an URL (containing all the parameters) or an object with more granular control. */
@@ -61,7 +61,7 @@ export type UserinfoEndpointHandler = EndpointHandler<
   Profile
 >;
 
-export type AuthorizationEndpointHandler = { url: string; scopes: string };
+type AuthorizationParameters = { url: string; scope: string };
 
 export interface OAuthConfig<P> {
   id: string;
@@ -71,9 +71,9 @@ export interface OAuthConfig<P> {
    *
    * [Authorization endpoint](https://datatracker.ietf.org/doc/html/rfc6749#section-3.1)
    */
-  authorization: AuthorizationEndpointHandler;
+  authorization: AuthorizationParameters;
   token: string;
-  userinfo: AdvancedEndpointHandler<UrlParams, { tokens: TokenSet }, Profile>;
+  userinfo: UserinfoEndpointHandler;
   profile: (profile: P) => DefaultUser;
   clientId: string;
   clientSecret: string;
@@ -91,7 +91,7 @@ export const getProviderUrl = (provider: Provider) => {
     access_type: "offline",
     response_type: "code",
     prompt: "consent",
-    scope: provider.authorization.scopes,
+    scope: provider.authorization.scope,
     state: crypto.randomBytes(32).toString("hex"),
   };
 

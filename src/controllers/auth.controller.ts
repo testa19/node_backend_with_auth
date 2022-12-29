@@ -22,7 +22,7 @@ import {
 } from "~/utils/queue";
 import { User } from "@prisma/client";
 import { getProviderAuthToken } from "~/utils/oauth/providers";
-import parseProviders from "~/utils/oauth/parseProvider";
+import parseProviders from "~/utils/oauth/parseProviders";
 
 const cookiesOptions: CookieOptions = {
   httpOnly: true,
@@ -493,7 +493,7 @@ export const calbackOauthHandler = async (
         data: {
           userId: user.id,
           token_type: "bearer",
-          scope: provider.authorization.scopes,
+          scope: provider.authorization.scope,
           access_token: access_token,
           provider: provider.id,
           type: "oauth",

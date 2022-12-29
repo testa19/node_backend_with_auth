@@ -33,7 +33,7 @@ export default function Google<P extends GoogleProfile>(): OAuthConfig<P> {
     clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
     authorization: {
       url: "https://accounts.google.com/o/oauth2/v2/auth",
-      scopes: googleScopes,
+      scope: googleScopes,
     },
     token: "https://oauth2.googleapis.com/token",
     userinfo: {
