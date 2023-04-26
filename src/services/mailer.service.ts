@@ -16,6 +16,7 @@ const smtp = {
   pass: env.MAIL_PASS,
 };
 
+
 export default class Email {
   #firstName: string;
   #to: string;

@@ -519,7 +519,7 @@ export const calbackOauthHandler = async (
       app_access_token,
     });
   } catch (err: any) {
-    console.log("Failed to authorize Google User", err);
+    console.log("Failed to authorize Provider User", err);
     next(err);
   }
 };
